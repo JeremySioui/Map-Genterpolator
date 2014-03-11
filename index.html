@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+	<script src="./jquery-1.11.0.min.js"></script>
+	<script src="http://code.jquery.com/ui/1.10.4/jquery-ui.js"></script>
+	<script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8/jquery-ui.min.js"></script>
+	<script src="https://maps.googleapis.com/maps/api/js?sensor=false"></script>
+</head>
+
+<style>
+	html,body{
+		width:100%;
+		height:100%;
+		margin:0px;
+		padding:0px;
+	}
+	#map-canvas{
+		float:left;
+		width:70%;
+		height:100%;
+		margin:0px;
+		padding:0px;
+	}
+	.side{
+		float:left;
+		height:100%;
+		position:relative;
+		bottom:0px;
+		margin:0px;
+		padding:0px;
+		width: 30%;
+	    background:#777;
+	}
+	#lineOutput{
+		height:100%;
+		overflow:auto;
+		width:100%;
+		background:#CCC;
+		resize:none;
+	}
+</style>
+
+<script>
+//TODO: Store icon,  don't ask for it each time
+	var map, polyLine, tempLine;
+	var gm = google.maps;
+	var points =[]
+	var tempMarkers=[];
+
+	polyOptions = {
+		geodesic: false,
+		strokeColor: '#FF0000',
+		strokeOpacity: 0.5,
+		strokeWeight: 2
+	};
+
+	/** Converts numeric degrees to radians */
+	if (typeof(Number.prototype.toRad) === "undefined") {
+	  Number.prototype.toRad = function() {
+	    return this * Math.PI / 180;
+	  }
+	}
+
+	function outputLine(line){
+		string = "[";
+		for (var i = 0; i < line.length; i++) {
+				latlng = line[i];
+				string += "{lat:" + latlng.lat() +", lng:" + latlng.lng() +"}, "
+		};
+		string +="]"
+
+		document.getElementById("lineOutput").innerHTML = string;
+
+	}
+
+	//From http://www.movable-type.co.uk/scripts/latlong.html
+	function calcDistance(point1, point2){
+		var R = 6371; // km
+		var dLat = (point2.lat()-point1.lat()).toRad();
+		var dLon = (point2.lng()-point1.lng()).toRad();
+		var lat1 = point1.lat().toRad();
+		var lat2 = point2.lat().toRad();
+
+		var a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+		        Math.sin(dLon/2) * Math.sin(dLon/2) * Math.cos(lat1) * Math.cos(lat2);
+		var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+		var d = R * c;
+		return d;
+	}
+
+	function fillInLine(totalPoints){
+		//Clear out last temp line
+		for (var i = 0; i < tempMarkers.length; i++) {
+			tempMarkers[i].setMap(null)
+		};
+		tempMarkers = [];
+
+		var returnLine = [];
+		var baseLine = polyLine.getPath().getArray()
+
+		//Calculate the total length of the path by adding the distance between the points
+		var totalDistance = 0;
+		//Don't do the last one since we're counting between points
+		for (var i = 0; i < baseLine.length-1; i++) {
+			totalDistance += calcDistance(baseLine[i], baseLine[i+1]);
+		};
+
+		//Look at the line in terms of segments
+		for (var i = 0; i < baseLine.length-1; i++) {
+			var A = baseLine[i];
+			var B = baseLine[i+1];
+			var distance = calcDistance(A, B);
+			console.log("----")
+			//Find out how many of the total points should be in this line
+			var share = distance / totalDistance;
+			console.log("share:" + share)
+			var numPoints = Math.floor((totalPoints - baseLine.length) * share);
+			console.log("NumPoints:" + numPoints)
+			//Now, even add that many points in between A and B
+			var vertSpacing = (A.lng() - B.lng()) / (numPoints+1);
+			var horzSpacing = (A.lat() - B.lat()) / (numPoints+1);
+			var slope = (A.lat() - B.lat()) / (A.lng() - B.lng())
+
+			returnLine.push(A)
+			for (var j = 1; j <= numPoints; j++) {
+				console.log("making point");
+				newLatLng = new gm.LatLng(A.lat() - (horzSpacing * j), A.lng()- vertSpacing * j);
+				returnLine.push(newLatLng);
+				// console.log(newLatLng)
+				newTempMarker(newLatLng);
+			};
+		};
+		returnLine.push(baseLine[baseLine.length-1]);
+		return returnLine;
+	}
+
+	function computeNewLine(){
+		//Remove the previous tempLine
+		if(tempLine != undefined){
+			tempLine.setMap(null);
+		}
+
+		var numPoints = document.getElementById("numPoints").value;
+		var newPath = polyLine.getPath().getArray()
+
+		//Make sure that the request is for more points, if they don't
+			//Want more points than they've already selected, just give
+			// them the array they chose themselves
+		if(numPoints > newPath.length){
+			newPath = fillInLine(numPoints);
+		}
+		var options = {
+			path: newPath,
+			geodesic:false,
+			strokeColor:"#228022",
+			strokeOpacity: 1.0,
+			strokeWeight:4
+		};
+		tempLine = new gm.Polyline(options);
+		tempLine.setMap(map)
+		outputLine(newPath);
+	}
+
+	function newTempMarker(latLng){
+		var iconUrl ="http://sites.google.com/site/mxamples/"// "http://maps.google.com/mapfiles/ms/icons/"
+		var icon = {
+			url: iconUrl +  "mm_red.png"//"green-dot.png",
+		};
+		var marker = new gm.Marker({
+			position: latLng,
+			map: map,
+			icon: icon,
+			size: new gm.Size(1, 1),
+		});
+		tempMarkers.push(marker);
+
+	}
+
+	function newMarker(latLng, toolTip){
+		var iconUrl ="http://sites.google.com/site/mxamples/"// "http://maps.google.com/mapfiles/ms/icons/"
+		var icon = {
+			url: iconUrl +  "mm_orange.png"//"green-dot.png",
+		};
+
+		var marker = new gm.Marker({
+			position: latLng,
+			map: map,
+			icon: icon,
+			size: new gm.Size(1, 1),
+			title: toolTip,
+			draggable: true
+		});
+
+		//Record the marker
+		points.push(marker)
+
+		//Update the polyline when the marker is dragged
+		gm.event.addListener(marker, "dragend", function() {
+			//Have to find the marker in the poly line and update it's position
+			//We use its index in the points[] to find it in the polyline
+			for (var i = points.length - 1; i >= 0; i--) {
+				if(marker == points[i]){
+					polyLine.getPath().setAt(i, marker.position);
+				}
+			};
+		})
+
+		//Remove the marker when it's clicked
+		gm.event.addListener(marker, "click", function (){
+			//Have to look for the marker in the marker list, the index
+			//	corresponds with its index in the polyline
+			for (var i = points.length - 1; i >= 0; i--) {
+				if(points[i] == marker){
+					marker.setMap(null);
+					points.splice(i,1);
+					polyLine.getPath().removeAt(i);
+					break;
+				}
+			};
+		})
+	}
+
+	//Add a marker on left click, and add to polyline
+	function onLeftClick(event){
+		if(event.latLng){
+			polyLine.getPath().push(event.latLng);
+			var toolTip = "" + points.length
+			newMarker(event.latLng, toolTip)
+		}
+	}
+
+	function init(){
+		var cumberland = new gm.LatLng(39.647,-78.7628);
+		var lasVegas = new gm.LatLng(36.131516,-115.151507);
+		var mapOptions = {
+			zoom: 16,
+			center: lasVegas,
+			mapTypeId: gm.MapTypeId.ROADMAP
+		}
+		map = new gm.Map(document.getElementById("map-canvas"), mapOptions)
+		gm.event.addListener(map, "click", onLeftClick);
+
+		polyLine = new gm.Polyline(polyOptions);
+		polyLine.setMap(map)
+	}
+
+
+	gm.event.addDomListener(window, 'load', init);
+</script>
+
+<body>
+	<div id="map-canvas"></div>
+	<div id ="sidebar" class="side">
+		<div id="options">
+			<h3 style="text-align:center">Options</h3>
+			<table>
+				<tr>
+					<td> Total # of Points: </td>
+					<td align="right"><input id="numPoints" type="text" size=10 value="0"/>
+	          			<input type="button" value="Compute New PolyLine" onclick="computeNewLine()"/>
+	          		</td>
+	      		</tr>
+	  		</table>
+		</div>
+		<div id="output"  style="position: absolute; top:120px; width:99%;bottom:100px">
+			<h3 style="text-align:center">Output</h3>
+			<textarea id="lineOutput" readonly>
+			</textarea>
+		</div>
+	</div>
+</body>
+
+</html>
