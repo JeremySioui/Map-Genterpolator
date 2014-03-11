@@ -2,7 +2,6 @@
 <html>
 
 <head>
-	<script src="./jquery-1.11.0.min.js"></script>
 	<script src="http://code.jquery.com/ui/1.10.4/jquery-ui.js"></script>
 	<script src="http://ajax.googleapis.com/ajax/libs/jqueryui/1.8/jquery-ui.min.js"></script>
 	<script src="https://maps.googleapis.com/maps/api/js?sensor=false"></script>
@@ -42,11 +41,16 @@
 </style>
 
 <script>
-//TODO: Store icon,  don't ask for it each time
 	var map, polyLine, tempLine;
 	var gm = google.maps;
 	var points =[]
 	var tempMarkers=[];
+	var orangeIcon = {
+			url: "http://sites.google.com/site/mxamples/" +  "mm_orange.png"
+		};
+	var redIcon = {
+			url: "http://sites.google.com/site/mxamples/" +  "mm_red.png"
+		};
 
 	polyOptions = {
 		geodesic: false,
@@ -163,14 +167,10 @@
 	}
 
 	function newTempMarker(latLng){
-		var iconUrl ="http://sites.google.com/site/mxamples/"// "http://maps.google.com/mapfiles/ms/icons/"
-		var icon = {
-			url: iconUrl +  "mm_red.png"//"green-dot.png",
-		};
 		var marker = new gm.Marker({
 			position: latLng,
 			map: map,
-			icon: icon,
+			icon: redIcon,
 			size: new gm.Size(1, 1),
 		});
 		tempMarkers.push(marker);
@@ -178,15 +178,10 @@
 	}
 
 	function newMarker(latLng, toolTip){
-		var iconUrl ="http://sites.google.com/site/mxamples/"// "http://maps.google.com/mapfiles/ms/icons/"
-		var icon = {
-			url: iconUrl +  "mm_orange.png"//"green-dot.png",
-		};
-
 		var marker = new gm.Marker({
 			position: latLng,
 			map: map,
-			icon: icon,
+			icon: orangeIcon,
 			size: new gm.Size(1, 1),
 			title: toolTip,
 			draggable: true
