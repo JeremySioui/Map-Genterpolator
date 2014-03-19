@@ -119,7 +119,7 @@
 			//Find out how many of the total points should be in this line
 			var share = distance / totalDistance;
 			console.log("share:" + share)
-			var numPoints = Math.floor((totalPoints - baseLine.length) * share);
+			var numPoints = Math.floor((totalPoints - baseLine.length+1) * share);
 			console.log("NumPoints:" + numPoints)
 			//Now, even add that many points in between A and B
 			var vertSpacing = (A.lng() - B.lng()) / (numPoints+1);
